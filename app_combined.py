@@ -582,6 +582,20 @@ with tab1:
     with col2:
         st.markdown('<div class="section-title">📌 Insights</div>', unsafe_allow_html=True)
         
+        # ===== OVERLAPS ANZEIGEN (NEU) =====
+        if analysis.get('overlaps') and len(analysis['overlaps']) > 0:
+            st.markdown('<div class="section-title">🔗 Erkannte Overlaps</div>', unsafe_allow_html=True)
+            for overlap in analysis['overlaps']:
+                st.markdown(f"""
+                <div class="insight-card">
+                    <div class="small-label">⚠️ {overlap['theme']} Overlap</div>
+                    <div class="big-text">{overlap['real_exposure_pct']} Real-Exposure</div>
+                    <div class="helper-text">{overlap['recommendation']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # ===== MAIN INSIGHTS =====
+        
         st.markdown(f"""
         <div class="insight-card">
             <div class="small-label">💡 Wichtigster Hebel</div>
@@ -606,19 +620,39 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
         
+        # ===== THEME EXPOSURE ANZEIGEN =====
+        
+        st.markdown('<div class="section-title">🌍 Theme-Exposure</div>', unsafe_allow_html=True)
+        
+        themes_sorted = sorted(analysis.get('themes', {}).items(), 
+                              key=lambda x: x[1], 
+                              reverse=True)
+        
+        theme_text = ""
+        for theme, exposure in themes_sorted:
+            if exposure > 5:  # Nur relevante Themes
+                theme_text += f"• **{theme.title()}**: {exposure:.1f}%\n"
+        
+        st.markdown(f"""
+        <div class="insight-card">
+            <div class="small-label">📊 Themes > 5%</div>
+            {theme_text}
+        </div>
+        """, unsafe_allow_html=True)
+        
         st.markdown('<div class="section-title">⚡ Quick Actions</div>', unsafe_allow_html=True)
         
-        if st.button("📊 Portfolio einordnen", width="stretch"):
+        if st.button("📊 Portfolio einordnen", key="btn_portfolio", use_container_width=True):
             user_q = "Wie ist mein Portfolio wirklich aufgestellt?"
             run_question(user_q, portfolio_data, analysis)
             st.rerun()
         
-        if st.button("⚠️ Risiken checken", width="stretch"):
-            user_q = "Wo habe ich ein Klumpenrisiko?"
+        if st.button("⚠️ Overlaps checken", key="btn_overlaps", use_container_width=True):
+            user_q = "Erkläre mir die Overlaps in meinem Portfolio."
             run_question(user_q, portfolio_data, analysis)
             st.rerun()
         
-        if st.button("🎯 Top 3 Punkte", width="stretch"):
+        if st.button("🎯 Top 3 Punkte", key="btn_top3", use_container_width=True):
             user_q = "Was sind die 3 wichtigsten Punkte?"
             run_question(user_q, portfolio_data, analysis)
             st.rerun()

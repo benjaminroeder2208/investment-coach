@@ -76,7 +76,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Help Command"""
+    """Help Command (UPDATED Phase 1)"""
     help_text = """📚 *Investment Coach – Alle Commands*
 
 *Portfolio-Übersicht:*
@@ -84,7 +84,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 /top3 – Top 3 Positionen
 /top10 – Top 10 Positionen
 
-*Analysen:*
+*Analysen (NEUE Phase 1):*
+/overlaps – 🆕 Erkannte Überschneidungen
+/themes – 🆕 Theme-Exposure (visuelle Darstellung)
+/quick – 🆕 Schnelle Analyse mit Coach
+
+*Standard Analysen:*
 /risks – Risikoanalyse & Konzentrationen
 /performance – Gewinn/Verlust Statistik
 /diversification – Diversifizierungs-Score
@@ -92,7 +97,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 /regions – Regionale Verteilung
 /assets – Asset-Klassen Verteilung
 
-*Detailiert:*
+*Detailliert:*
 /transactions – Letzte Transaktionen
 /analyze – Vollständige Portfolio-Analyse
 /insights – Wichtigste Erkenntnisse
@@ -105,10 +110,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 *Chat:*
 Schreib einfach eine Frage und der Coach antwortet!
 Beispiele:
-• \"Wie ist mein Portfolio aufgestellt?\"
-• \"Wo habe ich Risiken?\"
-• \"Was sind die Top 3 Punkte?\"
-• \"Sollte ich rebalancieren?\"
+- \"Wie ist mein Portfolio aufgestellt?\"
+- \"Wo habe ich Risiken?\"
+- \"Erkläre die Overlaps\"
+- \"Was sind die Top 3 Punkte?\"
 """
     await update.message.reply_text(help_text, parse_mode="Markdown")
 
@@ -437,6 +442,122 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 # MAIN
 # ==================
 
+# ==================
+# NEUE COMMANDS (Phase 1)
+# ==================
+
+async def overlaps_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Zeige erkannte Overlaps"""
+    portfolio, analysis = load_portfolio_data()
+    
+    if not portfolio or not analysis:
+        await update.message.reply_text("❌ Portfolio-Daten nicht verfügbar")
+        return
+    
+    overlaps = analysis.get('overlaps', [])
+    
+    if not overlaps:
+        await update.message.reply_text("✅ Keine signifikanten Overlaps erkannt. Portfolio ist gut verteilt.")
+        return
+    
+    response = "🔗 *Erkannte Überschneidungen*\n\n"
+    
+    for overlap in overlaps:
+        response += f"*{overlap['theme']}*\n"
+        response += f"Real-Exposure: {overlap['real_exposure_pct']}\n"
+        response += f"Positionen: {overlap['positions']}\n"
+        response += f"💡 {overlap['recommendation']}\n\n"
+    
+    await update.message.reply_text(response, parse_mode="Markdown")
+
+
+async def themes_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Zeige Theme-Exposure"""
+    portfolio, analysis = load_portfolio_data()
+    
+    if not portfolio or not analysis:
+        await update.message.reply_text("❌ Portfolio-Daten nicht verfügbar")
+        return
+    
+    themes = analysis.get('themes', {})
+    
+    if not themes:
+        await update.message.reply_text("❌ Keine Theme-Daten vorhanden")
+        return
+    
+    response = "🌍 *Theme-Exposure*\n\n"
+    
+    themes_sorted = sorted(themes.items(), key=lambda x: x[1], reverse=True)
+    
+    for theme, exposure in themes_sorted:
+        if exposure > 5:
+            # Visualisierung mit Bar
+            bar_length = int(exposure / 5)
+            bar = "█" * bar_length
+            response += f"{theme.upper():15s} {bar:20s} {exposure:.1f}%\n"
+    
+    await update.message.reply_text(response, parse_mode="Markdown")
+
+
+async def quick_analysis_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Schnelle Analyse mit Overlaps & Themes"""
+    portfolio, analysis = load_portfolio_data()
+    
+    if not portfolio or not analysis:
+        await update.message.reply_text("❌ Portfolio-Daten nicht verfügbar")
+        return
+    
+    await update.message.chat.send_action("typing")
+    
+    # Frage an Coach (neu: mit Overlaps im Context)
+    overlaps = analysis.get('overlaps', [])
+    themes = analysis.get('themes', {})
+    
+    overlap_context = ""
+    if overlaps:
+        overlap_context = "\n\nWichtig: Ich habe folgende Overlaps erkannt:\n"
+        for o in overlaps[:2]:
+            overlap_context += f"- {o['theme']}: {o['real_exposure_pct']}\n"
+    
+    theme_context = "\nTop Themes:\n"
+    for theme, exp in sorted(themes.items(), key=lambda x: x[1], reverse=True)[:3]:
+        if exp > 5:
+            theme_context += f"- {theme.title()}: {exp:.0f}%\n"
+    
+    question = f"""Gib mir eine KURZE, prägnante Analyse meines Portfolios.
+    
+Format:
+1. **Kernaussage** (1 Satz)
+2. **Top 3 Erkenntnisse** (mit Zahlen)
+3. **Nächster Schritt** (konkret)
+
+{overlap_context}
+{theme_context}"""
+    
+    try:
+        coach_response = ask_coach(
+            question=question,
+            portfolio_data=portfolio,
+            analysis=analysis,
+            history=[]
+        )
+        
+        response = f"""📊 *Quick Analysis*
+
+{coach_response}
+
+_Basierend auf echten Daten & erkannten Overlaps_
+"""
+        
+        if len(response) <= 4096:
+            await update.message.reply_text(response, parse_mode="Markdown")
+        else:
+            for i in range(0, len(response), 4096):
+                await update.message.reply_text(response[i:i+4096], parse_mode="Markdown")
+    
+    except Exception as e:
+        await update.message.reply_text(f"❌ Fehler: {e}")
+
 def main() -> None:
     print("=" * 60)
     print("🚀 Investment Coach – Enhanced Telegram Bot GESTARTET")
@@ -458,6 +579,11 @@ def main() -> None:
     application.add_handler(CommandHandler("insights", insights_command))
     application.add_handler(CommandHandler("refresh", refresh_command))
     application.add_handler(CommandHandler("status", status_command))
+    
+    # Phase 1 Commands
+    application.add_handler(CommandHandler("overlaps", overlaps_command))
+    application.add_handler(CommandHandler("themes", themes_command))
+    application.add_handler(CommandHandler("quick", quick_analysis_command))
     
     # Message Handler
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
